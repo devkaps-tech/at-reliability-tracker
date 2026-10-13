@@ -1,0 +1,8 @@
+requests>=2.31
+python-dotenv>=1.0
+duckdb>=1.1
+pytz          # lets DuckDB return time-zone-aware times to Python
+pyarrow>=17
+pandas>=2.2
+streamlit>=1.38
+pytest>=8.0

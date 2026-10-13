@@ -1,0 +1,339 @@
+<title>Reliability Tracker Data Lifecycle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; the diagram is the centrepiece and scrolls sideways on phones. */
+:root {
+  --bg: #f4f6f5; --panel: #ffffff; --fg: #17211f; --muted: #56635f; --line: #c6d0cc;
+  --accent: #0f6e6a; --raw: #9a5a1e; --clean: #4b6d7f; --gold: #8f6c00; --code-bg: #e9efec;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101615; --panel: #172120; --fg: #e3eae7; --muted: #9db0aa; --line: #34433f;
+    --accent: #5bbdb5; --raw: #e39d5f; --clean: #98bacb; --gold: #e3be52; --code-bg: #1d2a28;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101615; --panel: #172120; --fg: #e3eae7; --muted: #9db0aa; --line: #34433f;
+  --accent: #5bbdb5; --raw: #e39d5f; --clean: #98bacb; --gold: #e3be52; --code-bg: #1d2a28;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--body); }
+main { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 64px; display: grid; gap: 48px; }
+h1, h2 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(28px, 4.5vw, 42px); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 22px; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+section { display: grid; gap: 16px; min-width: 0; }
+.lede { color: var(--muted); font-size: 18px; }
+.eyebrow { font: 600 12px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+
+/* Diagram */
+figure { margin: 0; display: grid; gap: 12px; }
+.scroll { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.scroll svg { display: block; min-width: 780px; width: 100%; height: auto; color: var(--muted); }
+figcaption { color: var(--muted); font-size: 14px; max-width: 80ch; }
+svg .bx { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+svg .bx.raw { stroke: var(--raw); stroke-width: 1.8; }
+svg .bx.clean { stroke: var(--clean); stroke-width: 1.8; }
+svg .bx.gold { stroke: var(--gold); stroke-width: 1.8; }
+svg .bx.score { stroke: var(--accent); stroke-width: 1.8; }
+svg .t { fill: var(--fg); font: 600 13px var(--body); }
+svg .s { fill: var(--muted); font: 11.5px var(--body); }
+svg .c { fill: var(--muted); font: 11px var(--mono); }
+svg .lane { fill: var(--fg); font: 700 11px var(--body); letter-spacing: .08em; }
+svg .stage { fill: var(--fg); font: 700 14px var(--display); }
+svg .chip-raw { fill: var(--raw); font: 700 10px var(--body); letter-spacing: .12em; }
+svg .chip-clean { fill: var(--clean); font: 700 10px var(--body); letter-spacing: .12em; }
+svg .chip-gold { fill: var(--gold); font: 700 10px var(--body); letter-spacing: .12em; }
+svg .al { fill: var(--muted); font: 11.5px var(--body); }
+svg .ar { stroke: currentColor; stroke-width: 1.4; fill: none; }
+svg .ar.dash { stroke-dasharray: 4 4; }
+svg .ar.loop { stroke: var(--accent); }
+svg .loop-t { fill: var(--accent); font: 600 11px var(--body); }
+svg .gate { fill: var(--gold); }
+svg .rail { stroke: var(--accent); stroke-width: 2; }
+svg .rail-dot { fill: var(--accent); }
+svg .rail-h { fill: var(--accent); font: 700 11px var(--body); letter-spacing: .08em; }
+svg .rail-b { fill: var(--fg); font: 600 12px var(--body); }
+
+/* Walk-through */
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.step { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--c, var(--line)); border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.step h3 { margin: 0; font: 700 15px var(--display); }
+.step .where { font: 12px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.step pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 10px; font: 12px/1.5 var(--mono); overflow-x: auto; }
+.step p { font-size: 14px; }
+.verdict { font-weight: 600; color: var(--accent); }
+
+/* Tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 760px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font: 600 12px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.layer { font-weight: 600; white-space: nowrap; }
+.layer::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; background: var(--c); vertical-align: 0; }
+
+ul.rules { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 75ch; }
+</style>
+
+<main>
+  <header style="display:grid; gap:12px">
+    <span class="eyebrow">AT Reliability Tracker</span>
+    <h1>How a bus update becomes a punctuality score</h1>
+    <p class="lede">Every piece of data in the project, where it is stored, what changes it, and how long it is kept. Data moves top to bottom: AT sends it, we save it untouched, clean it, score it against the timetable, check it, and only then show it.</p>
+  </header>
+
+  <figure>
+    <div class="scroll">
+      <svg viewBox="0 0 1000 990" role="img" aria-label="Data lifecycle: the AT timetable and the AT live feed are each collected, saved raw, and cleaned; the scoring step joins them to work out delays; results pass a quality gate into an append-only warehouse that feeds the dashboard, while scored stops are also saved for analysts. A scheduler runs the health check every 5 minutes and the nightly job at 04:30, and any day can be re-run from the raw files.">
+        <defs>
+          <marker id="ah" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="currentColor"/>
+          </marker>
+          <marker id="ah-acc" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M0,0 L8,4 L0,8 z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+
+        <!-- Lane headers -->
+        <text class="lane" x="290" y="30" text-anchor="middle">TIMETABLE · WHAT SHOULD HAPPEN</text>
+        <text class="lane" x="600" y="30" text-anchor="middle">LIVE FEED · WHAT DID HAPPEN</text>
+
+        <!-- Stage labels -->
+        <text class="stage" x="4" y="82">Source</text><text class="s" x="4" y="100">outside our control</text>
+        <text class="stage" x="4" y="212">Collect</text><text class="s" x="4" y="230">pull it in</text>
+        <text class="stage" x="4" y="336">Raw</text><text class="s" x="4" y="354">untouched, kept forever</text><text class="chip-raw" x="4" y="372">BRONZE</text>
+        <text class="stage" x="4" y="466">Clean</text><text class="s" x="4" y="484">one folder per day</text><text class="chip-clean" x="4" y="502">SILVER</text>
+        <text class="stage" x="4" y="608">Score + check</text><text class="s" x="4" y="626">the business logic</text>
+        <text class="stage" x="4" y="760">Results</text><text class="s" x="4" y="778">added, never overwritten</text><text class="chip-gold" x="4" y="796">GOLD</text>
+        <text class="stage" x="4" y="920">Serve</text><text class="s" x="4" y="938">who uses it</text>
+
+        <!-- Row 1: sources -->
+        <rect class="bx" x="160" y="50" width="260" height="70" rx="8"/>
+        <text class="t" x="174" y="74">AT timetable (GTFS zip)</text>
+        <text class="c" x="174" y="92">gtfs.at.govt.nz/gtfs.zip</text>
+        <text class="s" x="174" y="109">republished every few weeks</text>
+        <rect class="bx" x="470" y="50" width="260" height="70" rx="8"/>
+        <text class="t" x="484" y="74">AT Realtime API</text>
+        <text class="c" x="484" y="92">/realtime/legacy (combined)</text>
+        <text class="s" x="484" y="109">quota 35,000 calls / week</text>
+
+        <!-- Row 2: collect -->
+        <rect class="bx" x="160" y="180" width="260" height="70" rx="8"/>
+        <text class="t" x="174" y="204">gtfs_load.py</text>
+        <text class="s" x="174" y="222">checks AT's zip every night</text>
+        <text class="s" x="174" y="239">loads it only if it's a new version</text>
+        <rect class="bx" x="470" y="180" width="260" height="70" rx="8"/>
+        <text class="t" x="484" y="204">collector.py</text>
+        <text class="s" x="484" y="222">every 2 min = 720 calls / day</text>
+        <text class="s" x="484" y="239">retries · log · heartbeat file</text>
+
+        <!-- Row 3: raw -->
+        <rect class="bx raw" x="160" y="310" width="260" height="70" rx="8"/>
+        <text class="t" x="174" y="334">Timetable archive</text>
+        <text class="c" x="174" y="352">data/gtfs/&lt;version&gt;.zip</text>
+        <text class="s" x="174" y="369">every version kept · ~30 MB each</text>
+        <rect class="bx raw" x="470" y="310" width="260" height="70" rx="8"/>
+        <text class="t" x="484" y="334">Raw feed files</text>
+        <text class="c" x="484" y="352">date=…/HHMMSS+1300.json.gz</text>
+        <text class="s" x="484" y="369">~128 KB each · ~92 MB / day</text>
+
+        <!-- Row 4: clean -->
+        <rect class="bx clean" x="160" y="440" width="260" height="70" rx="8"/>
+        <text class="t" x="174" y="464">Timetable tables (DuckDB)</text>
+        <text class="s" x="174" y="482">routes, trips, 1.2 M stop times</text>
+        <text class="s" x="174" y="499">every row tagged with its version</text>
+        <rect class="bx clean" x="470" y="440" width="260" height="70" rx="8"/>
+        <text class="t" x="484" y="464">stop_observations · trip_status</text>
+        <text class="s" x="484" y="482">Parquet, one folder per service day</text>
+        <text class="s" x="484" y="499">one row per trip per stop</text>
+
+        <!-- Row 5: score -->
+        <rect class="bx score" x="160" y="570" width="570" height="90" rx="8"/>
+        <text class="t" x="445" y="596" text-anchor="middle">score.py · match each stop to its timetable time</text>
+        <text class="s" x="445" y="618" text-anchor="middle">delay = actual time − timetable time   (negative = early)</text>
+        <text class="s" x="445" y="640" text-anchor="middle">early &gt; 1 min early · on time · late &gt; 5 min late · grouped by route, operator, mode, hour</text>
+
+        <!-- Row 6: results -->
+        <rect class="bx gold" x="160" y="720" width="260" height="110" rx="8"/>
+        <text class="t" x="174" y="744">stop_arrivals</text>
+        <text class="s" x="174" y="762">Parquet, one folder per service day</text>
+        <text class="s" x="174" y="779">every scored stop with its delay</text>
+        <text class="s" x="174" y="796">the most detailed table</text>
+        <rect class="bx gold" x="470" y="720" width="260" height="110" rx="8"/>
+        <text class="t" x="484" y="744">warehouse.duckdb</text>
+        <text class="c" x="484" y="762">daily_route_metrics</text>
+        <text class="c" x="484" y="778">daily_route_trips</text>
+        <text class="c" x="484" y="794">quality_checks · pipeline_runs</text>
+        <text class="s" x="484" y="816">each re-run adds a new run_id</text>
+
+        <!-- Row 7: serve -->
+        <rect class="bx" x="160" y="890" width="260" height="70" rx="8"/>
+        <text class="t" x="174" y="914">Analysts &amp; models</text>
+        <text class="s" x="174" y="932">delay prediction, research</text>
+        <text class="s" x="174" y="949">read the Parquet files directly</text>
+        <rect class="bx" x="470" y="890" width="260" height="70" rx="8"/>
+        <text class="t" x="484" y="914">Dashboard (Streamlit)</text>
+        <text class="s" x="484" y="932">worst routes · trends · heat map</text>
+        <text class="s" x="484" y="949">pipeline health panel</text>
+
+        <!-- Timetable lane arrows -->
+        <line class="ar" x1="290" y1="120" x2="290" y2="179" marker-end="url(#ah)"/><text class="al" x="300" y="154">download zip</text>
+        <line class="ar" x1="290" y1="250" x2="290" y2="309" marker-end="url(#ah)"/><text class="al" x="300" y="284">save if new version</text>
+        <line class="ar" x1="290" y1="380" x2="290" y2="439" marker-end="url(#ah)"/><text class="al" x="300" y="414">load + version tag</text>
+        <line class="ar" x1="290" y1="510" x2="290" y2="569" marker-end="url(#ah)"/><text class="al" x="300" y="544">planned times</text>
+        <line class="ar" x1="290" y1="660" x2="290" y2="719" marker-end="url(#ah)"/><text class="al" x="300" y="694">every scored stop</text>
+        <line class="ar" x1="290" y1="830" x2="290" y2="889" marker-end="url(#ah)"/><text class="al" x="300" y="864">read files</text>
+
+        <!-- Live lane arrows -->
+        <line class="ar" x1="600" y1="120" x2="600" y2="179" marker-end="url(#ah)"/><text class="al" x="610" y="154">GET + API key</text>
+        <line class="ar" x1="600" y1="250" x2="600" y2="309" marker-end="url(#ah)"/><text class="al" x="610" y="284">save untouched (gzip)</text>
+        <line class="ar" x1="600" y1="380" x2="600" y2="439" marker-end="url(#ah)"/><text class="al" x="610" y="414">parse · dedupe · drop stale</text>
+        <line class="ar" x1="600" y1="510" x2="600" y2="569" marker-end="url(#ah)"/><text class="al" x="610" y="544">actual times</text>
+        <line class="ar" x1="600" y1="660" x2="600" y2="680"/>
+        <polygon class="gate" points="600,680 611,691 600,702 589,691"/>
+        <line class="ar" x1="600" y1="702" x2="600" y2="719" marker-end="url(#ah)"/>
+        <text class="al" x="618" y="695">quality gate: 5 checks</text>
+        <line class="ar" x1="600" y1="830" x2="600" y2="889" marker-end="url(#ah)"/><text class="al" x="610" y="864">newest run that passed</text>
+
+        <!-- Backfill loop: raw -> clean, between the lanes -->
+        <path class="ar loop" d="M470,362 H448 V488 H469" marker-end="url(#ah-acc)"/>
+        <text class="loop-t" x="440" y="425" text-anchor="middle" transform="rotate(-90 440 425)">re-run any day</text>
+
+        <!-- Scheduler rail -->
+        <text class="rail-h" x="822" y="160">SCHEDULER</text>
+        <line class="rail" x1="830" y1="172" x2="830" y2="640"/>
+        <line class="ar dash" x1="830" y1="215" x2="731" y2="215" marker-end="url(#ah)"/>
+        <circle class="rail-dot" cx="830" cy="215" r="4"/>
+        <text class="rail-b" x="842" y="207">every 5 min</text>
+        <text class="s" x="842" y="223">health check reads the</text>
+        <text class="s" x="842" y="238">heartbeat; alerts after</text>
+        <text class="s" x="842" y="253">10 min with no data</text>
+        <line class="ar dash" x1="830" y1="475" x2="731" y2="475" marker-end="url(#ah)"/>
+        <line class="ar dash" x1="830" y1="615" x2="731" y2="615" marker-end="url(#ah)"/>
+        <circle class="rail-dot" cx="830" cy="475" r="4"/>
+        <circle class="rail-dot" cx="830" cy="615" r="4"/>
+        <text class="rail-b" x="842" y="508">04:30 nightly</text>
+        <text class="s" x="842" y="524">refresh timetable</text>
+        <text class="s" x="842" y="539">→ clean yesterday</text>
+        <text class="s" x="842" y="554">→ score + check</text>
+        <text class="s" x="842" y="569">→ publish if checks pass</text>
+      </svg>
+    </div>
+    <figcaption>Two inputs flow side by side and meet only at the scoring step: the timetable says when each vehicle should reach each stop, the live feed says when it did. Raw files are the only thing that can't be rebuilt; everything below them can be re-created from them at any time (the teal loop). Data engineers call the three storage layers bronze (raw), silver (clean) and gold (results).</figcaption>
+  </figure>
+
+  <section>
+    <span class="eyebrow">A real example from 13 Oct 2026</span>
+    <h2>Follow one train arrival through the pipeline</h2>
+    <p>A train on route S-C arrived at Newmarket station (platform 2) at 9:28:45 pm. Here is that one fact at each stage.</p>
+    <div class="steps">
+      <div class="step" style="--c: var(--raw)">
+        <h3>1 · Raw, as AT sent it</h3>
+        <div class="where">raw/realtime/date=2026-10-13/222549+1300.json.gz</div>
+        <pre>"trip_id": "257-870005-72360-…",
+"start_date": "20261013",
+"stop_time_update": {
+  "stop_sequence": 23,
+  "stop_id": "9103-0e65d9b8",
+  "arrival": {
+    "time": 1791880125,
+    "delay": -75 } },
+"timestamp": 1791880136</pre>
+        <p>Times are seconds since 1970 in UTC. We received this 57 minutes after it happened, which is still inside the 2-hour freshness limit.</p>
+      </div>
+      <div class="step" style="--c: var(--clean)">
+        <h3>2 · Clean</h3>
+        <div class="where">data/clean/stop_observations/service_date=2026-10-13/</div>
+        <pre>service_date   2026-10-13
+stop_sequence  23
+event          arrival
+event_time     21:28:45 NZDT
+vehicle_id     59208</pre>
+        <p>Converted to Auckland time. The same report shows up in several polls; only one copy is kept.</p>
+      </div>
+      <div class="step" style="--c: var(--accent)">
+        <h3>3 · Scored</h3>
+        <div class="where">data/clean/stop_arrivals/service_date=2026-10-13/</div>
+        <pre>scheduled  21:30:00  (timetable)
+actual     21:28:45
+delay_s    -75
+AT's delay -75   ✓ agrees
+time_band  evening</pre>
+        <p class="verdict">75 seconds early, which is more than 1 minute, so the label is “early”.</p>
+      </div>
+      <div class="step" style="--c: var(--gold)">
+        <h3>4 · Daily result</h3>
+        <div class="where">warehouse.duckdb · daily_route_metrics</div>
+        <pre>route S-C · train · AT Metro
+13 Oct · 9 pm hour
+stops_scored  2
+early         1   ← this one
+on_time       1
+late          0</pre>
+        <p>Counts are stored rather than percentages, so days, hours and routes can be added up correctly later.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow">Lifecycle</span>
+    <h2>What is kept, for how long, and how to get it back</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Where</th><th>One row is…</th><th>Written</th><th>Size (2-min polling)</th><th>Kept</th><th>If lost</th></tr></thead>
+        <tbody>
+          <tr><td class="layer" style="--c: var(--raw)">Raw feed</td><td class="mono">raw/realtime/date=…/</td><td>one API response (a file)</td><td>every 2 min</td><td class="num">~92 MB/day · ~34 GB/yr</td><td>forever</td><td><strong>Gone for good.</strong> Back it up.</td></tr>
+          <tr><td class="layer" style="--c: var(--raw)">Timetable archive</td><td class="mono">data/gtfs/</td><td>one timetable version (a zip)</td><td>when AT publishes</td><td class="num">~30 MB/version</td><td>forever</td><td>Older versions can't be re-downloaded</td></tr>
+          <tr><td class="layer" style="--c: var(--clean)">Timetable tables</td><td class="mono">gtfs_* in DuckDB</td><td>one stop of one trip, per version</td><td>when a new version loads</td><td class="num">~1.2 M rows/version</td><td>forever</td><td>Reload from the archive</td></tr>
+          <tr><td class="layer" style="--c: var(--clean)">Clean observations</td><td class="mono">data/clean/stop_observations, trip_status</td><td>one stop of one trip / one trip</td><td>nightly</td><td class="num">a few MB/day</td><td>forever (re-creatable)</td><td>Re-run the day</td></tr>
+          <tr><td class="layer" style="--c: var(--gold)">Scored stops</td><td class="mono">data/clean/stop_arrivals</td><td>one scored stop with its delay</td><td>nightly</td><td class="num">a few MB/day</td><td>forever (re-creatable)</td><td>Re-run the day</td></tr>
+          <tr><td class="layer" style="--c: var(--gold)">Daily results</td><td class="mono">daily_route_metrics, daily_route_trips</td><td>route × hour × day × run</td><td>nightly, added only</td><td class="num">KBs/day</td><td>forever</td><td>Re-run the day</td></tr>
+          <tr><td class="layer" style="--c: var(--gold)">Run log + checks</td><td class="mono">pipeline_runs, quality_checks</td><td>one run / one check</td><td>every run</td><td class="num">tiny</td><td>forever</td><td>History of past runs is lost</td></tr>
+          <tr><td class="layer" style="--c: var(--line)">Logs</td><td class="mono">logs/</td><td>one poll / one job</td><td>continuously</td><td class="num">small</td><td>30 days</td><td>Nothing important</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow">Rules</span>
+    <h2>Why you can trust a number on the dashboard</h2>
+    <ul class="rules">
+      <li><strong>Raw is never edited.</strong> Every later table can be rebuilt from it, so a bug fix means re-running days, not losing them.</li>
+      <li><strong>Every result says where it came from:</strong> the timetable version it was scored against and the <code>run_id</code> that made it.</li>
+      <li><strong>Re-running a day adds a new run.</strong> Nothing is overwritten. The dashboard shows the newest run that passed its checks.</li>
+      <li><strong>The quality gate.</strong> Two checks can stop a day being published: at least 95% of live trips found in the timetable, and at most 1% of delays beyond ±2 hours. Three more only warn: polls received, routes covered, and agreement with AT's own delay figure.</li>
+      <li><strong>Time is handled once, carefully.</strong> Moments are stored exactly and shown in Auckland time. A trip timetabled at 25:10 belongs to the previous day's service. Times on daylight-saving days are counted from noon minus 12 hours, the way the timetable standard defines them.</li>
+    </ul>
+  </section>
+
+  <section>
+    <span class="eyebrow">Future scope</span>
+    <h2>Limits today, and what lifts them</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Today</th><th>Why it matters</th><th>Next step</th></tr></thead>
+        <tbody>
+          <tr><td>Polls every 2 minutes (5,040 calls/week, 14% of quota)</td><td>Each update reports only a trip's latest stop, so we see roughly 1 in 4 stops. That's enough for route scores but not for stop-by-stop detail.</td><td>Poll every 30 s (20,160 calls/week) once it runs in the cloud</td></tr>
+          <tr><td>Runs on a laptop</td><td>Polls are missed whenever the Mac sleeps, which inflates the “never seen” trip count</td><td>Small always-on cloud server that restarts the collector automatically, plus an outside service that alerts if the server itself goes silent</td></tr>
+          <tr><td>Scheduler is a simple Python loop</td><td>No retries, no run history screen</td><td>Airflow, Dagster or Prefect</td></tr>
+          <tr><td>SQL lives inside Python files</td><td>Harder to test and document each step</td><td>dbt models with built-in tests and docs</td></tr>
+          <tr><td>Arrival time scored at every stop</td><td>Buses often arrive early at mid-route stops and then wait, so arrival-based scores look harsher than they feel to riders</td><td>Score departures, or only major timing stops</td></tr>
+          <tr><td>JSON responses (~1 MB each)</td><td>Larger downloads and storage</td><td>Request Protobuf, which is much smaller</td></tr>
+          <tr><td>DuckDB file on one machine</td><td>One writer at a time; the dashboard can't be hosted separately</td><td>Results to Postgres or cloud storage when the dashboard goes public</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>

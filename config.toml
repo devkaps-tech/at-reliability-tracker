@@ -1,0 +1,49 @@
+# All tunable settings live here, so nothing is buried in the code.
+
+[collector]
+feed_url = "https://api.at.govt.nz/realtime/legacy/"   # combined feed (trip updates + vehicles + alerts)
+poll_seconds = 120           # one call every 2 min = 720/day, 5,040/week (quota is 35,000/week). 30 = full detail.
+timeout_seconds = 10         # give up on a single call after this long
+retry_wait_seconds = [2, 5]  # if a call fails, wait 2 s and retry, then 5 s and retry, then skip this poll
+raw_dir = "raw/realtime"
+log_dir = "logs"
+
+[alert]
+no_data_minutes = 10         # alert if nothing has been saved for this long
+
+[punctuality]
+# Delay = actual minus scheduled, in seconds (negative = early).
+early_if_more_than_seconds_early = 60    # more than 1 min early  -> "early"
+late_if_more_than_seconds_late = 300     # more than 5 min late   -> "late"
+                                         # anything in between    -> "on time"
+
+[storage]
+warehouse = "data/warehouse.duckdb"   # the database: timetable versions, daily metrics, run log, checks
+clean_dir = "data/clean"              # cleaned + scored data, one folder per service day (Parquet files)
+
+[gtfs]
+url = "https://gtfs.at.govt.nz/gtfs.zip"   # public timetable zip (not part of the API quota)
+archive_dir = "data/gtfs"                   # every timetable version is kept here
+
+[cleaning]
+max_update_age_minutes = 120   # ignore live updates older than this when we receive them
+
+[quality]
+max_abs_delay_minutes = 120     # delays beyond ±2 h are treated as bad data and left out of the scores
+# Each check: the minimum share (0-1) needed to pass. "block" checks stop the day being published.
+min_trip_match_rate = 0.95      # block: live trips found in the timetable
+max_bad_delay_rate = 0.01       # block: share of delays beyond ±2 h
+min_poll_coverage = 0.99        # warn: polls received vs expected (720/day at 2-min polling)
+min_route_coverage = 0.90       # warn: scheduled routes that appear in the live data
+min_delay_agreement = 0.90      # warn: our delay within 60 s of AT's own delay figure
+
+[schedule]
+nightly_run_time = "04:30"      # Auckland time; scores yesterday (late trips finish by ~03:00)
+health_check_minutes = 5
+
+# Time bands by scheduled hour (Auckland time). Hours not listed fall into "night".
+[time_bands]
+am_peak = [7, 8]
+midday = [9, 10, 11, 12, 13, 14]
+pm_peak = [15, 16, 17, 18]
+evening = [19, 20, 21, 22]

@@ -1,0 +1,15 @@
+# Secrets — never commit
+.env
+
+# Data and logs live on disk / cloud storage, not in Git
+raw/
+data/
+logs/
+gtfs/
+*.duckdb
+
+# Python / OS clutter
+.venv/
+__pycache__/
+.pytest_cache/
+.DS_Store
