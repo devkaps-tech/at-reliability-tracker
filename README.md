@@ -78,15 +78,3 @@ cp .env.example .env                                # paste your AT key into .en
 ```
 
 The first scores appear the morning after collection starts. Run the tests with `.venv/bin/python -m pytest`.
-
-## More detail
-
-- [Technical details](docs/technical-details.md): requirements, each stage of the pipeline, data quality checks,
-  table definitions, settings and troubleshooting.
-- [Requirements and architecture](AT%20Reliability%20Tracker%20—%20Requirements%20&%20Architecture.md): the original
-  plan, stakeholders and design choices.
-- `docs/data_lifecycle.html`: a diagram of the data flow with one real train arrival followed from start to finish
-  (download and open in a browser).
-
-Data: Auckland Transport timetable and Realtime API, used under
-[AT's API terms of use](https://dev-portal.at.govt.nz/api-terms-of-use).
