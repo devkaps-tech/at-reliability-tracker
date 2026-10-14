@@ -22,17 +22,26 @@ CREATE TABLE IF NOT EXISTS gtfs_routes (
     route_long_name VARCHAR, route_type INTEGER, mode VARCHAR);
 CREATE TABLE IF NOT EXISTS gtfs_trips (
     gtfs_version VARCHAR, trip_id VARCHAR, route_id VARCHAR, service_id VARCHAR,
-    direction_id INTEGER, trip_headsign VARCHAR);
+    direction_id INTEGER, trip_headsign VARCHAR, shape_id VARCHAR);
+ALTER TABLE gtfs_trips ADD COLUMN IF NOT EXISTS shape_id VARCHAR;  -- added after the first version was loaded
 CREATE TABLE IF NOT EXISTS gtfs_stop_times (
     gtfs_version VARCHAR, trip_id VARCHAR, stop_sequence INTEGER, stop_id VARCHAR,
     arrival_secs INTEGER, departure_secs INTEGER);  -- seconds after "service-day midnight"; can pass 24 h
 CREATE TABLE IF NOT EXISTS gtfs_stops (
     gtfs_version VARCHAR, stop_id VARCHAR, stop_code VARCHAR, stop_name VARCHAR, stop_lat DOUBLE, stop_lon DOUBLE);
+CREATE TABLE IF NOT EXISTS gtfs_shapes (   -- the line each route draws on a map
+    gtfs_version VARCHAR, shape_id VARCHAR, seq INTEGER, lat DOUBLE, lon DOUBLE);
 CREATE TABLE IF NOT EXISTS gtfs_calendar (
     gtfs_version VARCHAR, service_id VARCHAR, monday INTEGER, tuesday INTEGER, wednesday INTEGER,
     thursday INTEGER, friday INTEGER, saturday INTEGER, sunday INTEGER, start_date DATE, end_date DATE);
 CREATE TABLE IF NOT EXISTS gtfs_calendar_dates (
     gtfs_version VARCHAR, service_id VARCHAR, date DATE, exception_type INTEGER);  -- 1 = added, 2 = removed
+
+-- The main pattern of each route direction: its usual destination sign and map line.
+CREATE OR REPLACE VIEW route_patterns AS
+    SELECT gtfs_version, route_id, direction_id, mode(trip_headsign) AS headsign, mode(shape_id) AS shape_id,
+           count(*) AS trips
+    FROM gtfs_trips GROUP BY ALL;
 
 -- One row each time a day is scored. Re-running a day adds a new run; nothing is overwritten.
 CREATE TABLE IF NOT EXISTS pipeline_runs (

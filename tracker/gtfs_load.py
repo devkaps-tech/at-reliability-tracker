@@ -6,6 +6,7 @@ so a past day is always scored against the timetable that was live on that day.
 Run with:
     python -m tracker.gtfs_load --download      # fetch AT's latest zip; load it only if it's new
     python -m tracker.gtfs_load gtfs            # load a folder (or .zip) you already have
+    python -m tracker.gtfs_load --reload data/gtfs/20261005-43b28c.zip   # replace an already-loaded version
 """
 
 import argparse
@@ -44,11 +45,19 @@ def gtfs_secs(column: str) -> str:
             f"try_cast(split_part({column}, ':', 3) AS INT)")
 
 
-def load_folder(folder: Path, source: str) -> str | None:
-    """Load one unzipped timetable. Returns its version tag, or None if that version is already loaded."""
+GTFS_TABLES = ["gtfs_agency", "gtfs_routes", "gtfs_trips", "gtfs_stop_times", "gtfs_stops", "gtfs_shapes",
+               "gtfs_calendar", "gtfs_calendar_dates", "gtfs_versions"]
+
+
+def load_folder(folder: Path, source: str, reload: bool = False) -> str | None:
+    """Load one unzipped timetable. Returns its version tag, or None if that version is already loaded.
+    reload=True first removes that version, e.g. after adding a new column to the loader."""
     info = read_feed_info(folder)
     version = version_tag(info)
     con = connect()
+    if reload:
+        for table in GTFS_TABLES:
+            con.execute(f"DELETE FROM {table} WHERE gtfs_version = ?", [version])
     if con.execute("SELECT 1 FROM gtfs_versions WHERE gtfs_version = ?", [version]).fetchone():
         print(f"Timetable {version} is already loaded — nothing to do")
         return None
@@ -63,8 +72,13 @@ def load_folder(folder: Path, source: str) -> str | None:
                CASE route_type::INT {' '.join(f"WHEN {k} THEN '{m}'" for k, m in MODES.items())} ELSE 'other' END
         FROM {csv_of('routes.txt')}""", {"v": version})
     con.execute(f"""INSERT INTO gtfs_trips
-        SELECT $v, trip_id, route_id, service_id, direction_id::INT, trip_headsign FROM {csv_of('trips.txt')}""",
-                {"v": version})
+            (gtfs_version, trip_id, route_id, service_id, direction_id, trip_headsign, shape_id)
+        SELECT $v, trip_id, route_id, service_id, direction_id::INT, trip_headsign, shape_id
+        FROM {csv_of('trips.txt')}""", {"v": version})
+    if (folder / "shapes.txt").exists():
+        con.execute(f"""INSERT INTO gtfs_shapes
+            SELECT $v, shape_id, shape_pt_sequence::INT, shape_pt_lat::DOUBLE, shape_pt_lon::DOUBLE
+            FROM {csv_of('shapes.txt')}""", {"v": version})
     con.execute(f"""INSERT INTO gtfs_stop_times
         SELECT $v, trip_id, stop_sequence::INT, stop_id, {gtfs_secs('arrival_time')}, {gtfs_secs('departure_time')}
         FROM {csv_of('stop_times.txt')}""", {"v": version})
@@ -92,11 +106,11 @@ def load_folder(folder: Path, source: str) -> str | None:
     return version
 
 
-def load_zip(zip_path: Path, source: str) -> str | None:
+def load_zip(zip_path: Path, source: str, reload: bool = False) -> str | None:
     with tempfile.TemporaryDirectory() as tmp:
         with zipfile.ZipFile(zip_path) as z:
             z.extractall(tmp)
-        return load_folder(Path(tmp), source)
+        return load_folder(Path(tmp), source, reload)
 
 
 def download_and_load() -> str | None:
@@ -119,6 +133,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("path", nargs="?", help="a GTFS folder or .zip to load")
     parser.add_argument("--download", action="store_true", help="download AT's latest timetable")
+    parser.add_argument("--reload", action="store_true", help="replace that version if it is already loaded")
     args = parser.parse_args()
     if args.download:
         download_and_load()
@@ -131,9 +146,9 @@ def main() -> None:
             target = archive / f"{version_tag(read_feed_info(path))}.zip"
             if not target.exists():
                 shutil.make_archive(str(target.with_suffix("")), "zip", path)
-            load_folder(path, source=str(path))
+            load_folder(path, source=str(path), reload=args.reload)
         else:
-            load_zip(path, source=str(path))
+            load_zip(path, source=str(path), reload=args.reload)
     else:
         parser.error("give a folder/zip to load, or --download")
 

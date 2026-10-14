@@ -66,14 +66,15 @@ def score_day(con, service_date: date, clean_stats: dict) -> dict:
     # 1. Match each observed stop to its timetable stop and work out the delay.
     con.execute(f"""CREATE OR REPLACE TEMP TABLE scored AS
         WITH joined AS (
-            SELECT o.*, t.route_id AS tt_route_id,
+            SELECT o.*, t.route_id AS tt_route_id, t.direction_id,
                    CASE WHEN o.event = 'arrival' THEN st.arrival_secs ELSE st.departure_secs END AS sched_secs
             FROM read_parquet('{obs_path}') o
             JOIN gtfs_trips t ON t.gtfs_version = $v AND t.trip_id = o.trip_id
             JOIN gtfs_stop_times st ON st.gtfs_version = $v AND st.trip_id = o.trip_id
                                    AND st.stop_sequence = o.stop_sequence
         ), with_delay AS (
-            SELECT j.service_date, j.trip_id, j.tt_route_id AS route_id, r.route_short_name, r.mode,
+            SELECT j.service_date, $v AS gtfs_version, j.trip_id, j.tt_route_id AS route_id, j.direction_id,
+                   r.route_short_name, r.mode,
                    coalesce(a.agency_name, r.agency_id) AS operator, j.stop_sequence, j.stop_id, j.event,
                    to_timestamp($base + j.sched_secs) AS scheduled_time, j.event_time AS actual_time,
                    epoch(j.event_time)::BIGINT - ($base + j.sched_secs) AS delay_s, j.feed_delay_s,
